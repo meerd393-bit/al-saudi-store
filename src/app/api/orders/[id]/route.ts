@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const params = await context.params;
     const orderId = params.id;
     const filePath = path.join(process.cwd(), 'data', 'orders.json');
     

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
+import { sql } from '@vercel/postgres';
 import fs from 'fs';
 import path from 'path';
 
 let globalOrders: any[] | null = null;
+let tableCreated = false;
 
-// Helper to get orders
-function getOrders() {
+// Fallback logic when running locally without Postgres
+function getMemoryOrders() {
   if (globalOrders) return globalOrders;
   const filePath = path.join(process.cwd(), 'data', 'orders.json');
   try {
@@ -17,21 +19,49 @@ function getOrders() {
   return globalOrders;
 }
 
-// GET all orders
-export async function GET() {
-  const orders = getOrders() || [];
-  // Sort by date descending (newest first)
-  const sorted = [...orders].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  return NextResponse.json(sorted);
+// Ensure the SQL table exists
+async function ensureTable() {
+  if (tableCreated) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS orders (
+        id VARCHAR(255) PRIMARY KEY,
+        "customerName" VARCHAR(255),
+        phone VARCHAR(255),
+        address VARCHAR(255),
+        product VARCHAR(255),
+        color VARCHAR(255),
+        amount VARCHAR(255),
+        status VARCHAR(255),
+        date VARCHAR(255)
+      );
+    `;
+    tableCreated = true;
+  } catch (e) {
+    console.error("Error creating table:", e);
+  }
 }
 
-// POST new order
+export async function GET() {
+  if (process.env.POSTGRES_URL) {
+    try {
+      await ensureTable();
+      const { rows } = await sql`SELECT * FROM orders ORDER BY date DESC`;
+      return NextResponse.json(rows);
+    } catch (e) {
+      console.error(e);
+      return NextResponse.json([]);
+    }
+  } else {
+    const orders = getMemoryOrders() || [];
+    const sorted = [...orders].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return NextResponse.json(sorted);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const filePath = path.join(process.cwd(), 'data', 'orders.json');
-    
-    const orders = getOrders() || [];
     const newOrder = {
       id: `#ORD-${Math.floor(1000 + Math.random() * 9000)}`,
       customerName: body.customerName,
@@ -44,17 +74,21 @@ export async function POST(request: Request) {
       date: new Date().toISOString()
     };
     
-    orders.push(newOrder);
-    globalOrders = orders; // save in memory
-    
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(orders, null, 2));
-    } catch(e) {
-      // Vercel serverless functions are read-only, ignore file write error
+    if (process.env.POSTGRES_URL) {
+      await ensureTable();
+      await sql`
+        INSERT INTO orders (id, "customerName", phone, address, product, color, amount, status, date)
+        VALUES (${newOrder.id}, ${newOrder.customerName}, ${newOrder.phone}, ${newOrder.address}, ${newOrder.product}, ${newOrder.color}, ${newOrder.amount}, ${newOrder.status}, ${newOrder.date})
+      `;
+    } else {
+      const orders = getMemoryOrders() || [];
+      orders.push(newOrder);
+      globalOrders = orders;
     }
     
     return NextResponse.json({ success: true, order: newOrder }, { status: 201 });
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 }

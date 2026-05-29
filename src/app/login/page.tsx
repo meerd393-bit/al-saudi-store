@@ -16,7 +16,8 @@ export default function LoginPage() {
     if (password === 'admin123') {
       // Set the auth cookie
       document.cookie = "admin_token=alsaudi_secure_2026; path=/; max-age=86400";
-      router.push('/admin');
+      // Force hard navigation to ensure middleware runs
+      window.location.href = '/admin';
     } else {
       setError('كلمة المرور غير صحيحة. حاول مرة أخرى.');
     }

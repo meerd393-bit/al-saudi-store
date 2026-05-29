@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { prisma } from '@/lib/prisma';
 import fs from 'fs';
 import path from 'path';
 
@@ -19,7 +20,7 @@ function getMemoryOrders() {
   return globalOrders;
 }
 
-// Ensure the SQL table exists
+// Ensure the SQL table exists (for @vercel/postgres fallback)
 async function ensureTable() {
   if (tableCreated) return;
   try {
@@ -43,20 +44,35 @@ async function ensureTable() {
 }
 
 export async function GET() {
+  // 1. Try Prisma if DATABASE_URL is defined
+  if (process.env.DATABASE_URL) {
+    try {
+      const orders = await prisma.order.findMany({
+        orderBy: {
+          date: 'desc',
+        },
+      });
+      return NextResponse.json(orders);
+    } catch (e) {
+      console.error("Prisma GET error:", e);
+    }
+  }
+
+  // 2. Try Vercel Postgres fallback
   if (process.env.POSTGRES_URL) {
     try {
       await ensureTable();
       const { rows } = await sql`SELECT * FROM orders ORDER BY date DESC`;
       return NextResponse.json(rows);
     } catch (e) {
-      console.error(e);
-      return NextResponse.json([]);
+      console.error("Vercel Postgres GET error:", e);
     }
-  } else {
-    const orders = getMemoryOrders() || [];
-    const sorted = [...orders].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return NextResponse.json(sorted);
   }
+
+  // 3. Try Local Memory / JSON fallback
+  const orders = getMemoryOrders() || [];
+  const sorted = [...orders].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return NextResponse.json(sorted);
 }
 
 export async function POST(request: Request) {
@@ -74,17 +90,36 @@ export async function POST(request: Request) {
       date: new Date().toISOString()
     };
     
-    if (process.env.POSTGRES_URL) {
-      await ensureTable();
-      await sql`
-        INSERT INTO orders (id, "customerName", phone, address, product, color, amount, status, date)
-        VALUES (${newOrder.id}, ${newOrder.customerName}, ${newOrder.phone}, ${newOrder.address}, ${newOrder.product}, ${newOrder.color}, ${newOrder.amount}, ${newOrder.status}, ${newOrder.date})
-      `;
-    } else {
-      const orders = getMemoryOrders() || [];
-      orders.push(newOrder);
-      globalOrders = orders;
+    // 1. Try Prisma if DATABASE_URL is defined
+    if (process.env.DATABASE_URL) {
+      try {
+        const created = await prisma.order.create({
+          data: newOrder,
+        });
+        return NextResponse.json({ success: true, order: created }, { status: 201 });
+      } catch (e) {
+        console.error("Prisma POST error:", e);
+      }
     }
+
+    // 2. Try Vercel Postgres fallback
+    if (process.env.POSTGRES_URL) {
+      try {
+        await ensureTable();
+        await sql`
+          INSERT INTO orders (id, "customerName", phone, address, product, color, amount, status, date)
+          VALUES (${newOrder.id}, ${newOrder.customerName}, ${newOrder.phone}, ${newOrder.address}, ${newOrder.product}, ${newOrder.color}, ${newOrder.amount}, ${newOrder.status}, ${newOrder.date})
+        `;
+        return NextResponse.json({ success: true, order: newOrder }, { status: 201 });
+      } catch (e) {
+        console.error("Vercel Postgres POST error:", e);
+      }
+    }
+
+    // 3. Try Local Memory / JSON fallback
+    const orders = getMemoryOrders() || [];
+    orders.push(newOrder);
+    globalOrders = orders;
     
     return NextResponse.json({ success: true, order: newOrder }, { status: 201 });
   } catch (error) {

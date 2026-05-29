@@ -30,10 +30,12 @@ export default function StoreHome() {
   const [activeColor, setActiveColor] = useState(colors[0].name);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState('');
 
   const handleOrderSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     const data = {
       customerName: formData.get('customerName'),
@@ -53,9 +55,14 @@ export default function StoreHome() {
       if (result.success) {
         setOrderId(result.order.id);
         setIsSubmitted(true);
+      } else {
+        alert('حدث خطأ في النظام، يرجى المحاولة مرة أخرى.');
       }
     } catch (error) {
       console.error(error);
+      alert('تعذر الاتصال بالسيرفر، يرجى التحقق من الإنترنت.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -245,8 +252,8 @@ export default function StoreHome() {
                       <label>المدينة والحي</label>
                       <input type="text" name="address" required placeholder="الرياض، حي العليا" />
                     </div>
-                    <button type="submit" className={styles.submitBtn}>
-                      إتمام الطلب
+                    <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+                      {isSubmitting ? 'جاري إرسال الطلب...' : 'إتمام الطلب'}
                     </button>
                   </form>
                 </>

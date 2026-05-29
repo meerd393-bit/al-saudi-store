@@ -410,3 +410,20 @@
   color: #ccc;
   line-height: 1.6;
 }
+@media (max-width: 768px) {
+  .hero { flex-direction: column; padding-top: 40px; text-align: center; min-height: auto; padding-bottom: 40px; }
+  .heroContent { align-items: center; }
+  .heroButtons { flex-direction: column; width: 100%; }
+  .heroButtons button { width: 100%; justify-content: center; }
+  .productDetailSection { padding: 40px 15px; gap: 30px; }
+  .mainImageWrapper { height: 300px; }
+  .productTitle { font-size: 1.8rem; }
+  .price { font-size: 2rem; }
+  .specsGrid { grid-template-columns: 1fr; }
+  .modal { padding: 20px; width: 95%; max-height: 90vh; overflow-y: auto; }
+  .thumbnails { justify-content: flex-start; }
+  .productBadge { align-self: center; }
+  .priceContainer { justify-content: center; }
+  .colorSelection { align-items: center; }
+  .addToCartBig { font-size: 1.1rem; padding: 15px; }
+}

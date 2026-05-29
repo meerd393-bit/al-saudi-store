@@ -216,3 +216,14 @@
   background: rgba(241, 196, 15, 0.15);
   color: #f1c40f;
 }
+@media (max-width: 900px) {
+  .adminContainer { flex-direction: column; }
+  .sidebar { position: relative; width: 100%; height: auto; border-left: none; border-bottom: 1px solid var(--border); padding: 15px; }
+  .navMenu { flex-direction: row; overflow-x: auto; gap: 5px; padding-bottom: 10px; }
+  .navItem { white-space: nowrap; padding: 10px 15px; }
+  .mainContent { margin-right: 0; }
+  .topbar { padding: 0 15px; flex-direction: column; height: auto; padding-top: 15px; padding-bottom: 15px; gap: 15px; }
+  .contentArea { padding: 15px; }
+  .tableContainer { overflow-x: auto; }
+  .table { min-width: 600px; }
+}
